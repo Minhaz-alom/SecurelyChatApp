@@ -1,6 +1,6 @@
 [build]
   # Provide the exact folder that contains the HTML files
-  publish = "frontend"
+  publish = "src/main/resources/static"
 
 [[redirects]]
   # Route all paths to index.html for Single Page Application routing flexibility
