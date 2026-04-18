@@ -18,11 +18,40 @@ let stompClient = null;
 let currentUser = null;
 let e2eSecret = null;
 let activeRoomId = null;
+let roomsList = []; // Track all rooms
 
 let colors = ['#F87171', '#FBBF24', '#34D399', '#60A5FA', '#A78BFA', '#F472B6'];
 
 // Use explicit backend URL from window or fallback to empty (relative)
 const API_BASE = window.SECURELY_BACKEND_URL || '';
+
+// --- Session Storage Helpers ---
+function saveRoomsToSession() {
+    sessionStorage.setItem('securelyRooms', JSON.stringify(roomsList));
+    sessionStorage.setItem('securelyActiveRoomId', activeRoomId);
+}
+
+function loadRoomsFromSession() {
+    const saved = sessionStorage.getItem('securelyRooms');
+    return saved ? JSON.parse(saved) : [];
+}
+
+// --- Debug Helper ---
+async function debugBackendConnection() {
+    console.log('=== Securely Debug Info ===');
+    console.log('Backend URL:', API_BASE || 'localhost (relative)');
+    console.log('Page URL:', window.location.href);
+    try {
+        const res = await fetch(`${API_BASE}/api/users`, { method: 'GET' });
+        console.log('GET /api/users status:', res.status);
+        if (res.ok) {
+            const data = await res.json();
+            console.log('Users:', data);
+        }
+    } catch (e) {
+        console.error('Connection test failed:', e);
+    }
+}
 
 // --- CryptoUtils for End-to-End Encryption ---
 const CryptoUtils = {
@@ -50,7 +79,12 @@ async function init() {
         const session = JSON.parse(savedSession);
         currentUser = session.user;
         e2eSecret = session.secret;
-        transitionToHome();
+        
+        // Load saved rooms
+        roomsList = loadRoomsFromSession();
+        const savedActiveRoomId = sessionStorage.getItem('securelyActiveRoomId');
+        
+        transitionToHome(roomsList, savedActiveRoomId);
     }
 }
 
@@ -61,16 +95,26 @@ async function loginUser(event) {
 
     if (rawUsername && rawSecret) {
         try {
+            console.log(`Attempting login to ${API_BASE}/api/login`);
             const loginRes = await fetch(`${API_BASE}/api/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: rawUsername })
             });
 
-            if (!loginRes.ok) throw new Error('Login failed');
+            console.log(`Login response status: ${loginRes.status}`);
+            
+            if (!loginRes.ok) {
+                const errorText = await loginRes.text();
+                throw new Error(`Login failed: ${loginRes.status} - ${errorText}`);
+            }
 
             currentUser = await loginRes.json();
             e2eSecret = rawSecret;
+            
+            // Reset rooms for new login
+            roomsList = [];
+            activeRoomId = null;
 
             // Persist session
             sessionStorage.setItem('securelyUserSession', JSON.stringify({
@@ -80,24 +124,32 @@ async function loginUser(event) {
 
             transitionToHome();
         } catch (err) {
-            alert('Could not reach Securely backend. Ensure the Java server is running.');
-            console.error(err);
+            console.error('Login error:', err);
+            alert(`Could not reach Securely backend: ${err.message}\n\nBackend URL: ${API_BASE || 'localhost (relative)'}\n\nCheck browser console for details.`);
         }
     }
 }
 
-async function transitionToHome() {
+async function transitionToHome(savedRooms = [], savedActiveRoomId = null) {
     usernamePage.classList.add('hidden');
     chatPage.classList.remove('hidden');
     currentUserDisplay.textContent = currentUser.username;
 
     // Load necessary data
     await loadAvailableUsers();
-    await connectToDefaultRoom();
+    
+    // If there are saved rooms, restore them; otherwise load default room
+    if (savedRooms && savedRooms.length > 0) {
+        await restoreSavedRooms(savedRooms, savedActiveRoomId);
+    } else {
+        await connectToDefaultRoom();
+    }
 }
 
 function handleLogout() {
     sessionStorage.removeItem('securelyUserSession');
+    sessionStorage.removeItem('securelyRooms');
+    sessionStorage.removeItem('securelyActiveRoomId');
     if(stompClient) {
         stompClient.disconnect();
     }
@@ -105,6 +157,32 @@ function handleLogout() {
 }
 
 // --- WebSocket & Stomp ---
+async function restoreSavedRooms(savedRooms, savedActiveRoomId) {
+    try {
+        // Add all saved rooms to the sidebar
+        for (const room of savedRooms) {
+            addRoomToSidebar(room);
+        }
+        
+        // Determine which room to activate
+        let roomToActivate = savedRooms[0]; // Default to first room
+        if (savedActiveRoomId) {
+            const found = savedRooms.find(r => r.id == savedActiveRoomId);
+            if (found) roomToActivate = found;
+        }
+        
+        switchActiveRoom(roomToActivate);
+        
+        // Connect WebSocket
+        let socket = new SockJS(`${API_BASE}/ws`);
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+        stompClient.connect({}, onConnected, onError);
+    } catch (err) {
+        console.error('Failed to restore rooms', err);
+        messageArea.innerHTML = '<div class="error-message">Unable to restore rooms. Check the backend server.</div>';
+    }
+}
 async function connectToDefaultRoom() {
     try {
         const roomRes = await fetch(`${API_BASE}/api/rooms/default-room`);
@@ -169,6 +247,10 @@ async function fetchMessages(roomId) {
 async function loadAvailableUsers() {
     try {
         const res = await fetch(`${API_BASE}/api/users`);
+        if (!res.ok) {
+            console.error('Failed to load users:', res.status, res.statusText);
+            return;
+        }
         const users = await res.json();
         
         userSelect.innerHTML = '<option value="">Select a user...</option>';
@@ -181,7 +263,8 @@ async function loadAvailableUsers() {
             }
         });
     } catch(e) {
-        console.error('Failed to load users');
+        console.error('Failed to load users:', e);
+        alert('Error loading users. Check console and backend connection.');
     }
 }
 
@@ -215,6 +298,9 @@ function switchActiveRoom(room) {
     let roomEl = document.querySelector(`.room-item[data-room-id="${room.id}"]`);
     if(roomEl) roomEl.classList.add('active');
     
+    // Save active room to session
+    saveRoomsToSession();
+    
     // Switch messages
     fetchMessages(room.id);
 }
@@ -228,6 +314,12 @@ function addRoomToSidebar(room) {
         existing.innerHTML = `<span class="hash">#</span> ${room.name}`;
         existing.addEventListener('click', () => switchActiveRoom(room));
         roomsArea.appendChild(existing);
+        
+        // Add room to our tracking list if not already there
+        if (!roomsList.find(r => r.id === room.id)) {
+            roomsList.push(room);
+            saveRoomsToSession();
+        }
     }
 }
 

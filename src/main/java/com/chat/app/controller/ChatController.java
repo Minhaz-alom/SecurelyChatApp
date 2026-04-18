@@ -88,7 +88,7 @@ public class ChatController {
     }
 
     // Get or create the default public room
-    @GetMapping("/api/rooms/default")
+    @GetMapping("/api/rooms/default-room")
     public ChatRoom getDefaultRoom() {
         return chatRoomRepository.findByName("general-encrypted")
                 .orElseGet(() -> {
