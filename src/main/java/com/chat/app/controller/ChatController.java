@@ -87,6 +87,18 @@ public class ChatController {
         return chatMessageRepository.findTop50ByRoomIdOrderByTimestampAsc(roomId);
     }
 
+    // Get or create the default public room
+    @GetMapping("/api/rooms/default")
+    public ChatRoom getDefaultRoom() {
+        return chatRoomRepository.findByName("general-encrypted")
+                .orElseGet(() -> {
+                    ChatRoom room = new ChatRoom();
+                    room.setGroup(true);
+                    room.setName("general-encrypted");
+                    return chatRoomRepository.save(room);
+                });
+    }
+
     // WebSocket - Send Message to a specific room
     @MessageMapping("/chat/{roomId}/sendMessage")
     public void sendMessage(@DestinationVariable String roomId, @Payload ChatMessage chatMessage) {

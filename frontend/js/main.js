@@ -106,15 +106,22 @@ function handleLogout() {
 
 // --- WebSocket & Stomp ---
 async function connectToDefaultRoom() {
-    const roomRes = await fetch(`${API_BASE}/api/rooms/default`);
-    const defaultRoom = await roomRes.json();
-    
-    switchActiveRoom(defaultRoom);
-    
-    let socket = new SockJS(`${API_BASE}/ws`);
-    stompClient = Stomp.over(socket);
-    stompClient.debug = null;
-    stompClient.connect({}, onConnected, onError);
+    try {
+        const roomRes = await fetch(`${API_BASE}/api/rooms/default`);
+        if (!roomRes.ok) throw new Error(`Default room returned ${roomRes.status}`);
+
+        const defaultRoom = await roomRes.json();
+        addRoomToSidebar(defaultRoom);
+        switchActiveRoom(defaultRoom);
+
+        let socket = new SockJS(`${API_BASE}/ws`);
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+        stompClient.connect({}, onConnected, onError);
+    } catch (err) {
+        console.error('Failed to load default room or connect websocket', err);
+        messageArea.innerHTML = '<div class="error-message">Unable to load the default room. Check the backend server.</div>';
+    }
 }
 
 function onConnected() {
@@ -228,19 +235,24 @@ function sendMessage(event) {
     event.preventDefault();
     const rawContent = messageInput.value.trim();
 
-    if (rawContent && stompClient) {
-        // ENCRYPT PAYLOAD HERE
-        const encryptedContent = CryptoUtils.encrypt(rawContent, e2eSecret);
-        
-        const chatMessage = {
-            sender: currentUser.username,
-            content: encryptedContent,  // Server only sees this!
-            type: 'CHAT'
-        };
-
-        stompClient.send(`/app/chat/${activeRoomId}/sendMessage`, {}, JSON.stringify(chatMessage));
-        messageInput.value = '';
+    if (!rawContent) {
+        return;
     }
+
+    if (!stompClient || !activeRoomId) {
+        console.error('Cannot send message: websocket is not connected or no active room selected');
+        return;
+    }
+
+    const encryptedContent = CryptoUtils.encrypt(rawContent, e2eSecret);
+    const chatMessage = {
+        sender: currentUser.username,
+        content: encryptedContent,
+        type: 'CHAT'
+    };
+
+    stompClient.send(`/app/chat/${activeRoomId}/sendMessage`, {}, JSON.stringify(chatMessage));
+    messageInput.value = '';
 }
 
 function onMessageReceived(payload) {
