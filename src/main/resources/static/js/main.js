@@ -67,6 +67,10 @@ const CryptoUtils = {
         } catch (e) {
             return '[Decryption Failed: Invalid Ciphertext]';
         }
+    },
+    // Generate SHA-256 hash for key grouping
+    hashKey: (key) => {
+        return CryptoJS.SHA256(key).toString();
     }
 };
 
@@ -96,10 +100,11 @@ async function loginUser(event) {
     if (rawUsername && rawSecret) {
         try {
             console.log(`Attempting login to ${API_BASE}/api/login`);
+            const keyHash = CryptoUtils.hashKey(rawSecret);
             const loginRes = await fetch(`${API_BASE}/api/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: rawUsername })
+                body: JSON.stringify({ username: rawUsername, keyHash: keyHash })
             });
 
             console.log(`Login response status: ${loginRes.status}`);
@@ -246,7 +251,7 @@ async function fetchMessages(roomId) {
 
 async function loadAvailableUsers() {
     try {
-        const res = await fetch(`${API_BASE}/api/users`);
+        const res = await fetch(`${API_BASE}/api/users?currentUserId=${currentUser.id}`);
         if (!res.ok) {
             console.error('Failed to load users:', res.status, res.statusText);
             return;

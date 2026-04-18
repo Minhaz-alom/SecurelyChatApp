@@ -14,6 +14,8 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -33,14 +35,37 @@ public class ChatController {
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
+    // Login request DTO
+    public static class LoginRequest {
+        private String username;
+        private String keyHash;
+
+        public String getUsername() { return username; }
+        public void setUsername(String username) { this.username = username; }
+        public String getKeyHash() { return keyHash; }
+        public void setKeyHash(String keyHash) { this.keyHash = keyHash; }
+    }
+
     // Pseudo Login Endpoint
     @PostMapping("/api/login")
-    public User login(@RequestBody User user) {
-        Optional<User> existingUser = userRepository.findByUsername(user.getUsername());
+    public User login(@RequestBody LoginRequest request) {
+        String username = request.getUsername();
+        String keyHash = request.getKeyHash();
+
+        Optional<User> existingUser = userRepository.findByUsername(username);
         if(existingUser.isPresent()) {
-            return existingUser.get();
+            User user = existingUser.get();
+            // Update key hash if different
+            if (!keyHash.equals(user.getKeyHash())) {
+                user.setKeyHash(keyHash);
+                userRepository.save(user);
+            }
+            return user;
         }
-        return userRepository.save(user);
+
+        // Create new user with key hash
+        User newUser = new User(username, keyHash);
+        return userRepository.save(newUser);
     }
 
     // Get User's Rooms
@@ -49,10 +74,15 @@ public class ChatController {
         return chatRoomRepository.findByMembersId(userId);
     }
 
-    // Get All Users (for starting new chats)
+    // Get All Users (for starting new chats) - filtered by same encryption key
     @GetMapping("/api/users")
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
+    public List<User> getAllUsers(@RequestParam Long currentUserId) {
+        User currentUser = userRepository.findById(currentUserId).orElseThrow();
+        String currentKeyHash = currentUser.getKeyHash();
+        if (currentKeyHash == null || currentKeyHash.isEmpty()) {
+            return List.of(); // No users if no key hash
+        }
+        return userRepository.findByKeyHash(currentKeyHash);
     }
 
     // Create or Get 1-to-1 Room

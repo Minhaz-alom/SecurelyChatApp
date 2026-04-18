@@ -14,10 +14,18 @@ public class User {
     @Column(unique = true, nullable = false)
     private String username;
 
+    @Column(name = "key_hash")
+    private String keyHash;
+
     public User() {}
 
     public User(String username) {
         this.username = username;
+    }
+
+    public User(String username, String keyHash) {
+        this.username = username;
+        this.keyHash = keyHash;
     }
 
     public Long getId() {
@@ -34,5 +42,13 @@ public class User {
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public String getKeyHash() {
+        return keyHash;
+    }
+
+    public void setKeyHash(String keyHash) {
+        this.keyHash = keyHash;
     }
 }
