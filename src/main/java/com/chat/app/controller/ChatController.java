@@ -49,19 +49,36 @@ public class ChatController {
         return chatRoomRepository.findByMembersId(userId);
     }
 
-    // Get Default General Room
-    @GetMapping("/api/rooms/default")
-    public ChatRoom getDefaultRoom() {
+    // Get All Users (for starting new chats)
+    @GetMapping("/api/users")
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    // Create or Get 1-to-1 Room
+    @PostMapping("/api/rooms/direct")
+    public ChatRoom getOrCreateDirectRoom(@RequestParam Long user1Id, @RequestParam Long user2Id) {
         List<ChatRoom> rooms = chatRoomRepository.findAll();
         for (ChatRoom room : rooms) {
-            if ("General".equals(room.getName())) {
-                return room;
+            if (!room.isGroup() && room.getMembers().size() == 2) {
+                boolean hasUser1 = room.getMembers().stream().anyMatch(u -> u.getId().equals(user1Id));
+                boolean hasUser2 = room.getMembers().stream().anyMatch(u -> u.getId().equals(user2Id));
+                if (hasUser1 && hasUser2) {
+                    return room;
+                }
             }
         }
-        ChatRoom general = new ChatRoom();
-        general.setName("General");
-        general.setGroup(true);
-        return chatRoomRepository.save(general);
+        
+        User u1 = userRepository.findById(user1Id).orElseThrow();
+        User u2 = userRepository.findById(user2Id).orElseThrow();
+        
+        ChatRoom newRoom = new ChatRoom();
+        newRoom.setGroup(false);
+        newRoom.setName(u1.getUsername() + " & " + u2.getUsername());
+        newRoom.getMembers().add(u1);
+        newRoom.getMembers().add(u2);
+        
+        return chatRoomRepository.save(newRoom);
     }
 
     // Get Room History
