@@ -1,0 +1,9 @@
+[build]
+  # Provide the exact folder that contains the HTML files
+  publish = "frontend"
+
+[[redirects]]
+  # Route all paths to index.html for Single Page Application routing flexibility
+  from = "/*"
+  to = "/index.html"
+  status = 200
