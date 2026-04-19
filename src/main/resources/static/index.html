@@ -108,8 +108,8 @@
         // Set your backend URL here. For Render/Railway use HTTPS.
         // For local development use http://localhost:8080.
         // For production deployment use https://securelychatapp.onrender.com
-        // If empty, falls back to local.
-        window.SECURELY_BACKEND_URL = "http://localhost:8080";
+        // If empty, auto-detects based on hostname (localhost -> local, others -> production)
+        window.SECURELY_BACKEND_URL = "";
     </script>
     <script src="/js/main.js"></script>
 </body>

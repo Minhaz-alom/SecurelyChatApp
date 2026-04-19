@@ -22,8 +22,11 @@ let roomsList = []; // Track all rooms
 
 let colors = ['#F87171', '#FBBF24', '#34D399', '#60A5FA', '#A78BFA', '#F472B6'];
 
-// Use explicit backend URL from window or fallback to empty (relative)
-const API_BASE = window.SECURELY_BACKEND_URL || '';
+// Use explicit backend URL from window or auto-detect environment
+const API_BASE = window.SECURELY_BACKEND_URL || 
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+        ? 'http://localhost:8080' 
+        : 'https://securelychatapp.onrender.com');
 
 // --- Session Storage Helpers ---
 function saveRoomsToSession() {
