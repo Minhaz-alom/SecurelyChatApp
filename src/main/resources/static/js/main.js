@@ -73,6 +73,8 @@ const CryptoUtils = {
     },
     // Generate SHA-256 hash for key grouping
     hashKey: (key) => {
+        console.log('CryptoJS available:', typeof CryptoJS);
+        console.log('CryptoJS.SHA256 available:', typeof CryptoJS.SHA256);
         return CryptoJS.SHA256(key).toString();
     }
 };
@@ -96,9 +98,17 @@ async function init() {
 }
 
 async function loginUser(event) {
+    console.log('loginUser function called!');
+    console.log('Event:', event);
+    console.log('Event type:', event.type);
     event.preventDefault();
+    console.log('Default prevented');
+    
     const rawUsername = document.querySelector('#name').value.trim();
     const rawSecret = document.querySelector('#secret-key').value.trim();
+    
+    console.log('Username:', rawUsername);
+    console.log('Secret length:', rawSecret.length);
 
     if (rawUsername && rawSecret) {
         try {
@@ -470,10 +480,30 @@ function getAvatarColor(messageSender) {
 }
 
 // --- Event Listeners ---
-usernameForm.addEventListener('submit', loginUser, true);
-messageForm.addEventListener('submit', sendMessage, true);
-startDmBtn.addEventListener('click', startDirectMessage);
-logoutBtn.addEventListener('click', handleLogout);
+console.log('Attaching event listeners...');
+console.log('usernameForm:', usernameForm);
+console.log('loginUser function:', typeof loginUser);
+
+if (usernameForm) {
+    usernameForm.addEventListener('submit', loginUser, true);
+    console.log('Login form event listener attached');
+} else {
+    console.error('usernameForm not found!');
+}
+
+if (messageForm) {
+    messageForm.addEventListener('submit', sendMessage, true);
+    console.log('Message form event listener attached');
+} else {
+    console.error('messageForm not found!');
+}
+
+if (startDmBtn) {
+    startDmBtn.addEventListener('click', startDirectMessage);
+}
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', handleLogout);
+}
 
 // Run init
 init();
