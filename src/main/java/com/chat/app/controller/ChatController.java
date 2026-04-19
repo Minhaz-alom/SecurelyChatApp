@@ -50,22 +50,23 @@ public class ChatController {
     @PostMapping("/api/login")
     public User login(@RequestBody LoginRequest request) {
         String username = request.getUsername();
-        String keyHash = request.getKeyHash();
+        // Temporarily ignore keyHash to fix login
+        // String keyHash = request.getKeyHash();
+
+        System.out.println("Login attempt for username: " + username);
 
         Optional<User> existingUser = userRepository.findByUsername(username);
         if(existingUser.isPresent()) {
             User user = existingUser.get();
-            // Update key hash if different
-            if (!keyHash.equals(user.getKeyHash())) {
-                user.setKeyHash(keyHash);
-                userRepository.save(user);
-            }
+            System.out.println("Found existing user: " + user.getId());
             return user;
         }
 
-        // Create new user with key hash
-        User newUser = new User(username, keyHash);
-        return userRepository.save(newUser);
+        // Create new user
+        User newUser = new User(username);
+        User savedUser = userRepository.save(newUser);
+        System.out.println("Created new user: " + savedUser.getId());
+        return savedUser;
     }
 
     // Get User's Rooms
@@ -74,15 +75,11 @@ public class ChatController {
         return chatRoomRepository.findByMembersId(userId);
     }
 
-    // Get All Users (for starting new chats) - filtered by same encryption key
+    // Get All Users (for starting new chats) - temporarily disabled key filtering
     @GetMapping("/api/users")
     public List<User> getAllUsers(@RequestParam Long currentUserId) {
-        User currentUser = userRepository.findById(currentUserId).orElseThrow();
-        String currentKeyHash = currentUser.getKeyHash();
-        if (currentKeyHash == null || currentKeyHash.isEmpty()) {
-            return List.of(); // No users if no key hash
-        }
-        return userRepository.findByKeyHash(currentKeyHash);
+        // Temporarily return all users
+        return userRepository.findAll();
     }
 
     // Create or Get 1-to-1 Room

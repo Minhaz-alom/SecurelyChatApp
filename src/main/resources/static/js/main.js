@@ -100,11 +100,12 @@ async function loginUser(event) {
     if (rawUsername && rawSecret) {
         try {
             console.log(`Attempting login to ${API_BASE}/api/login`);
-            const keyHash = CryptoUtils.hashKey(rawSecret);
+            // Temporarily disable keyHash for testing
+            // const keyHash = CryptoUtils.hashKey(rawSecret);
             const loginRes = await fetch(`${API_BASE}/api/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: rawUsername, keyHash: keyHash })
+                body: JSON.stringify({ username: rawUsername }) // , keyHash: keyHash
             });
 
             console.log(`Login response status: ${loginRes.status}`);
