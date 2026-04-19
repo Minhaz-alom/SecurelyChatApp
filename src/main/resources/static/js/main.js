@@ -164,6 +164,7 @@ function handleLogout() {
 // --- WebSocket & Stomp ---
 async function restoreSavedRooms(savedRooms, savedActiveRoomId) {
     try {
+        console.log('Restoring saved rooms:', savedRooms);
         // Add all saved rooms to the sidebar
         for (const room of savedRooms) {
             addRoomToSidebar(room);
@@ -178,11 +179,19 @@ async function restoreSavedRooms(savedRooms, savedActiveRoomId) {
         
         switchActiveRoom(roomToActivate);
         
+        console.log('Connecting to WebSocket at:', `${API_BASE}/ws`);
         // Connect WebSocket
         let socket = new SockJS(`${API_BASE}/ws`);
         stompClient = Stomp.over(socket);
         stompClient.debug = null;
-        stompClient.connect({}, onConnected, onError);
+        stompClient.connect({}, onConnected, (error) => {
+            console.error('WebSocket connection failed:', error);
+            // If WebSocket fails, clear saved data and try default room
+            sessionStorage.removeItem('securelyRooms');
+            sessionStorage.removeItem('securelyActiveRoomId');
+            messageArea.innerHTML = '<div class="error-message">Connection failed. Switching to default room...</div>';
+            setTimeout(() => connectToDefaultRoom(), 2000);
+        });
     } catch (err) {
         console.error('Failed to restore rooms', err);
         messageArea.innerHTML = '<div class="error-message">Unable to restore rooms. Check the backend server.</div>';
@@ -200,7 +209,10 @@ async function connectToDefaultRoom() {
         let socket = new SockJS(`${API_BASE}/ws`);
         stompClient = Stomp.over(socket);
         stompClient.debug = null;
-        stompClient.connect({}, onConnected, onError);
+        stompClient.connect({}, onConnected, (error) => {
+            console.error('WebSocket connection failed for default room:', error);
+            messageArea.innerHTML = '<div class="error-message">Unable to connect to chat server. Please refresh the page.</div>';
+        });
     } catch (err) {
         console.error('Failed to load default room or connect websocket', err);
         messageArea.innerHTML = '<div class="error-message">Unable to load the default room. Check the backend server.</div>';
@@ -224,8 +236,13 @@ function onError(error) {
     console.error('WebSocket Error:', error);
     const errElem = document.createElement('div');
     errElem.style.color = "red";
-    errElem.textContent = "Could not connect to WebSocket. Connecting to local server?";
+    errElem.textContent = "Could not connect to WebSocket server. Please check your connection.";
     messageArea.appendChild(errElem);
+    
+    // Clear saved rooms if WebSocket fails - they might be from different environment
+    sessionStorage.removeItem('securelyRooms');
+    sessionStorage.removeItem('securelyActiveRoomId');
+}
 }
 
 // --- API Calls ---
