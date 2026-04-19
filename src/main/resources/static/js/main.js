@@ -136,18 +136,31 @@ async function loginUser(event) {
 }
 
 async function transitionToHome(savedRooms = [], savedActiveRoomId = null) {
-    usernamePage.classList.add('hidden');
-    chatPage.classList.remove('hidden');
-    currentUserDisplay.textContent = currentUser.username;
+    console.log('Transitioning to home with user:', currentUser);
+    try {
+        usernamePage.classList.add('hidden');
+        chatPage.classList.remove('hidden');
+        currentUserDisplay.textContent = currentUser.username;
 
-    // Load necessary data
-    await loadAvailableUsers();
-    
-    // If there are saved rooms, restore them; otherwise load default room
-    if (savedRooms && savedRooms.length > 0) {
-        await restoreSavedRooms(savedRooms, savedActiveRoomId);
-    } else {
-        await connectToDefaultRoom();
+        console.log('Loading available users...');
+        // Load necessary data
+        await loadAvailableUsers();
+        
+        console.log('Users loaded, checking rooms...');
+        // If there are saved rooms, restore them; otherwise load default room
+        if (savedRooms && savedRooms.length > 0) {
+            console.log('Restoring saved rooms:', savedRooms);
+            await restoreSavedRooms(savedRooms, savedActiveRoomId);
+        } else {
+            console.log('Connecting to default room...');
+            await connectToDefaultRoom();
+        }
+        console.log('Transition complete!');
+    } catch (error) {
+        console.error('Error in transitionToHome:', error);
+        // If transition fails, go back to login
+        alert('Failed to load chat. Please try again.');
+        handleLogout();
     }
 }
 
@@ -268,12 +281,15 @@ async function fetchMessages(roomId) {
 
 async function loadAvailableUsers() {
     try {
+        console.log('Fetching users from:', `${API_BASE}/api/users?currentUserId=${currentUser.id}`);
         const res = await fetch(`${API_BASE}/api/users?currentUserId=${currentUser.id}`);
+        console.log('Users response status:', res.status);
         if (!res.ok) {
             console.error('Failed to load users:', res.status, res.statusText);
             return;
         }
         const users = await res.json();
+        console.log('Loaded users:', users);
         
         userSelect.innerHTML = '<option value="">Select a user...</option>';
         users.forEach(u => {
@@ -284,6 +300,7 @@ async function loadAvailableUsers() {
                 userSelect.appendChild(opt);
             }
         });
+        console.log('Users dropdown populated');
     } catch(e) {
         console.error('Failed to load users:', e);
         alert('Error loading users. Check console and backend connection.');
