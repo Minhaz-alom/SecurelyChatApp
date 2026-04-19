@@ -269,7 +269,6 @@ function onError(error) {
     sessionStorage.removeItem('securelyRooms');
     sessionStorage.removeItem('securelyActiveRoomId');
 }
-}
 
 // --- API Calls ---
 async function fetchMessages(roomId) {
