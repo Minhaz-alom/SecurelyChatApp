@@ -14,7 +14,7 @@ public class User {
     @Column(unique = true, nullable = false)
     private String username;
 
-    @Column(name = "key_hash")
+    @Column(name = "key_hash", nullable = true)
     private String keyHash;
 
     public User() {}

@@ -50,20 +50,25 @@ public class ChatController {
     @PostMapping("/api/login")
     public User login(@RequestBody LoginRequest request) {
         String username = request.getUsername();
-        // Temporarily ignore keyHash to fix login
-        // String keyHash = request.getKeyHash();
+        String keyHash = request.getKeyHash();
 
-        System.out.println("Login attempt for username: " + username);
+        System.out.println("Login attempt for username: " + username + ", keyHash: " + keyHash);
 
         Optional<User> existingUser = userRepository.findByUsername(username);
         if(existingUser.isPresent()) {
             User user = existingUser.get();
-            System.out.println("Found existing user: " + user.getId());
+            System.out.println("Found existing user: " + user.getId() + ", current keyHash: " + user.getKeyHash());
+            // Update key hash if different and not null
+            if (keyHash != null && !keyHash.equals(user.getKeyHash())) {
+                user.setKeyHash(keyHash);
+                userRepository.save(user);
+                System.out.println("Updated keyHash for user: " + user.getId());
+            }
             return user;
         }
 
-        // Create new user
-        User newUser = new User(username);
+        // Create new user with key hash
+        User newUser = new User(username, keyHash);
         User savedUser = userRepository.save(newUser);
         System.out.println("Created new user: " + savedUser.getId());
         return savedUser;
@@ -75,11 +80,15 @@ public class ChatController {
         return chatRoomRepository.findByMembersId(userId);
     }
 
-    // Get All Users (for starting new chats) - temporarily disabled key filtering
+    // Get All Users (for starting new chats) - filtered by same encryption key
     @GetMapping("/api/users")
     public List<User> getAllUsers(@RequestParam Long currentUserId) {
-        // Temporarily return all users
-        return userRepository.findAll();
+        User currentUser = userRepository.findById(currentUserId).orElseThrow();
+        String currentKeyHash = currentUser.getKeyHash();
+        if (currentKeyHash == null || currentKeyHash.isEmpty()) {
+            return List.of(); // No users if no key hash
+        }
+        return userRepository.findByKeyHash(currentKeyHash);
     }
 
     // Create or Get 1-to-1 Room
